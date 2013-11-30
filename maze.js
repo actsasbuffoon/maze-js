@@ -52,8 +52,8 @@ Block.prototype.availableNeighbors = function() {
 };
 
 Block.prototype.neighbor = function(relX, relY) {
-  x = this.x + relX;
-  y = this.y + relY;
+  var x = this.x + relX;
+  var y = this.y + relY;
   if (x >= 0 && x < this.maze.hBlocks && y >= 0 && y < this.maze.vBlocks) {
     return this.maze.blocks[y][x];
   }
@@ -91,7 +91,7 @@ Block.prototype.draw = function() {
     this.drawRightWall();
   }
 
-  if (this.maze.blockInHistory(this)) {
+  if (this.inHistory) {
     this.drawMarker();
   }
 };
@@ -101,40 +101,42 @@ Block.prototype.erase = function() {
   this.ctx.fillRect(this.x * this.width, this.y * this.height, this.width, this.height);
 };
 
+Block.prototype.drawWall = function(x1, y1, x2, y2) {
+  var ctx = this.ctx;
+  ctx.strokeStyle = "#000000";
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.closePath();
+  ctx.stroke();
+};
+
 Block.prototype.drawTopWall = function() {
-  this.ctx.strokeStyle = "#000000";
-  this.ctx.beginPath();
-  this.ctx.moveTo(this.x * this.width, this.y * this.height);
-  this.ctx.lineTo((this.x + 1) * this.width, this.y * this.height);
-  this.ctx.closePath();
-  this.ctx.stroke();
+  this.drawWall(this.x * this.width,
+                this.y * this.height,
+                (this.x + 1) * this.width,
+                this.y * this.height);
 };
 
 Block.prototype.drawBottomWall = function() {
-  this.ctx.strokeStyle = "#000000";
-  this.ctx.beginPath();
-  this.ctx.moveTo(this.x * this.width, (this.y + 1) * this.height);
-  this.ctx.lineTo((this.x + 1) * this.width, (this.y + 1) * this.height);
-  this.ctx.closePath();
-  this.ctx.stroke();
+  this.drawWall(this.x * this.width,
+                (this.y + 1) * this.height,
+                (this.x + 1) * this.width,
+                (this.y + 1) * this.height);
 };
 
 Block.prototype.drawLeftWall = function() {
-  this.ctx.strokeStyle = "#000000";
-  this.ctx.beginPath();
-  this.ctx.moveTo(this.x * this.width, this.y * this.height);
-  this.ctx.lineTo(this.x * this.width, (this.y + 1) * this.height);
-  this.ctx.closePath();
-  this.ctx.stroke();
+  this.drawWall(this.x * this.width,
+                this.y * this.height,
+                this.x * this.width,
+                (this.y + 1) * this.height);
 };
 
 Block.prototype.drawRightWall = function() {
-  this.ctx.strokeStyle = "#000000";
-  this.ctx.beginPath();
-  this.ctx.moveTo((this.x + 1) * this.width, this.y * this.height);
-  this.ctx.lineTo((this.x + 1) * this.width, (this.y + 1) * this.height);
-  this.ctx.closePath();
-  this.ctx.stroke();
+  this.drawWall((this.x + 1) * this.width,
+                this.y * this.height,
+                (this.x + 1) * this.width,
+                (this.y + 1) * this.height);
 };
 
 Block.prototype.drawMarker = function() {
@@ -149,7 +151,7 @@ Block.prototype.drawMarker = function() {
   this.ctx.fill();
 };
 
-var MazeGenerator = function(width, height, hBlocks, vBlocks, id) {
+var MazeGenerator = function(width, height, hBlocks, vBlocks, interval, steps, id) {
   this.canvas = document.getElementById(id);
   this.canvas.width = width;
   this.canvas.height = height;
@@ -162,6 +164,8 @@ var MazeGenerator = function(width, height, hBlocks, vBlocks, id) {
   this.vBlocks = vBlocks;
   this.blockWidth = this.width / this.hBlocks;
   this.blockHeight = this.height / this.vBlocks;
+  this.interval = interval;
+  this.steps = steps;
   this.finished = false;
   this.blocks = [];
   this.history = [];
@@ -179,12 +183,8 @@ MazeGenerator.prototype.initBlocks = function() {
   }
 };
 
-MazeGenerator.prototype.blockInHistory = function(block) {
-  return this.history.lastIndexOf(block) > -1;
-};
-
 MazeGenerator.prototype.drawLoop = function() {
-  for (var c = 0; c < 1500; ++c) {
+  for (var c = 0; c < this.steps; ++c) {
     if (!this.finished) {
       this.step();
       this.checkFinished();
@@ -192,34 +192,35 @@ MazeGenerator.prototype.drawLoop = function() {
   }
 
   var _this = this;
-  setTimeout(function() {
+  this.timeout = setTimeout(function() {
     _this.drawLoop();
-  }, 0);
+  }, this.interval);
 };
 
 MazeGenerator.prototype.step = function() {
   var oldBlock = this.currentBlock;
-  this.currentBlock = this.chooseBlock();
+  var currentBlock = this.currentBlock = this.chooseBlock();
 
-  if (!this.currentBlock) {
+  if (!currentBlock) {
     oldBlock.draw();
     this.finished = true;
     return;
   }
 
-  this.currentBlock.occupied = true;
-  if (!this.blockInHistory(this.currentBlock)) {
-    this.history.push(this.currentBlock);
+  currentBlock.occupied = true;
+  if (!currentBlock.inHistory) {
+    this.history.push(currentBlock);
+    currentBlock.inHistory = true;
   }
 
   if (oldBlock) {
-    if (!oldBlock.hasChild(this.currentBlock) && this.currentBlock.parent === undefined) {
-      oldBlock.connectTo(this.currentBlock);
+    if (!oldBlock.hasChild(currentBlock) && currentBlock.parent === undefined) {
+      oldBlock.connectTo(currentBlock);
     }
     oldBlock.draw();
   }
 
-  this.currentBlock.draw();
+  currentBlock.draw();
 };
 
 MazeGenerator.prototype.chooseBlock = function() {
@@ -228,21 +229,33 @@ MazeGenerator.prototype.chooseBlock = function() {
     if (n) {
       return n;
     } else {
-      this.history.pop();
-      return this.history.pop();
+      var b = this.history.pop();
+      b && (b.inHistory = false);
+      b = this.history.pop();
+      b && (b.inHistory = false);
+      return b;
     }
   } else {
     var x = Math.floor(Math.random() * this.hBlocks);
     var y = Math.floor(Math.random() * this.vBlocks);
     return this.blocks[y][x];
-  }
-}
+  };
+};
 
 MazeGenerator.prototype.checkFinished = function() {
   return false;
-}
+};
 
 function initMaze() {
-  window.maze = new MazeGenerator(3600, 2400, 300, 200, 'maze');
+  if (window.maze) {
+    clearTimeout(window.maze.timeout);
+  }
+
+  var canvasSize = parseInt(document.getElementById('canvasSize').value, 10);
+  var blocks = parseInt(document.getElementById('blocks').value, 10);
+  var interval = parseInt(document.getElementById('interval').value, 10);
+  var steps = parseInt(document.getElementById('steps').value, 10);
+  window.maze = new MazeGenerator(canvasSize, canvasSize, blocks, blocks, interval, steps, 'maze');
   window.maze.drawLoop();
 }
+
