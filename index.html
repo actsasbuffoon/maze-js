@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>Maze generator</title>
+    <link href="main.css" rel="stylesheet"/>
+  </head>
+  <body>
+    <div id="controls">
+      <label for="blocks">Blocks:</label>
+      <input id="blocks" type="text" name="" value="20">
+      <br>
+
+      <label for="canvasSize">Canvas size:</label>
+      <input id="canvasSize" type="text" name="" value="400">
+      <br>
+
+      <label for="interval">Sleep (ms):</label>
+      <input id="interval" type="text" name="" value="300">
+      <br>
+
+      <label for="steps">Steps per frame</label>
+      <input id="steps" type="text" name="" value="1">
+      <br>
+
+      <button onclick="initMaze();">Run</button>
+    </div>
+    <canvas id="maze" width="600" height="600"></canvas>
+    <script type="text/javascript" src="maze.js"></script>
+  </body>
+</html>
