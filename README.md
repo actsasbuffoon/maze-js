@@ -3,7 +3,7 @@ maze-js
 
 A recursive backtracking maze generator in JavaScript.
 
-See it in action at http://actsasbuffoon.com/maze-js/
+See it in action at https://cdn.rawgit.com/actsasbuffoon/maze-js/master/index.html
 
 The code isn't gorgeous, but part of that is a result of optimizing it for speed. That said, there's still some work to be done to make it faster.
 
